@@ -1,0 +1,267 @@
+#cloud-config
+# Ubuntu 24.04 LTS VM setup for NGINX Azure Monitor stack
+# Includes Docker, Azure Monitor Agent, and automatic service startup
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - software-properties-common
+  - unzip
+  - wget
+  - jq
+  - htop
+  - net-tools
+  - git
+  - vim
+
+write_files:
+  - path: /opt/nginx-monitor/.env
+    content: |
+      # Azure Configuration - will be populated by managed identity
+      #AZURE_SUBSCRIPTION_ID=
+      #AZURE_RESOURCE_GROUP=
+      #AZURE_RESOURCE_NAME=
+      #AZURE_REGION=
+
+      # Use Managed Identity
+      AZURE_USE_MANAGED_IDENTITY=true
+
+      # Monitoring Configuration
+      SCRAPE_INTERVAL=15
+
+      # NGINX Configuration
+      NGINX_WORKER_PROCESSES=auto
+      NGINX_WORKER_CONNECTIONS=1024
+
+      # Prometheus Exporter Configuration
+      NGINX_STATUS_URL=http://nginx/nginx_status
+      NGINX_JSON_URL=http://nginx/status_json
+      EXPORTER_SCRAPE_INTERVAL=15
+    permissions: '0600'
+
+  - path: /opt/nginx-monitor/docker-compose.yml
+    content: |
+      services:
+        nginx:
+          image: ghcr.io/ivanthelad/azmon-nginx-metrics/nginx:latest
+          container_name: nginx-server
+          ports:
+            - "80:80"
+          volumes:
+            - ./logs/nginx:/var/log/nginx
+          restart: unless-stopped
+          healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 10s
+
+        nginx-exporter:
+          image: ghcr.io/ivanthelad/azmon-nginx-metrics/nginx-exporter:latest
+          container_name: nginx-prometheus-exporter
+          ports:
+            - "9113:9113"
+          depends_on:
+            - nginx
+          environment:
+            - NGINX_STATUS_URL=http://nginx/nginx_status
+            - NGINX_JSON_URL=http://nginx/status_json
+            - SCRAPE_INTERVAL=15
+            - EXPORTER_PORT=9113
+          volumes:
+            - ./logs/nginx-exporter:/app/logs
+          restart: unless-stopped
+          healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:9113/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 15s
+
+        metrics-collector:
+          image: ghcr.io/ivanthelad/azmon-nginx-metrics/metrics-collector:latest
+          container_name: metrics-collector
+          depends_on:
+            - nginx-exporter
+          environment:
+            - PROMETHEUS_URL=http://nginx-exporter:9113/metrics
+            - SCRAPE_INTERVAL=${SCRAPE_INTERVAL:-60}
+            - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
+            - AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP}
+            - AZURE_RESOURCE_NAME=${AZURE_RESOURCE_NAME}
+            - AZURE_REGION=${AZURE_REGION:-northeurope}
+            - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+            - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+            - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+            - AZURE_USE_MANAGED_IDENTITY=${AZURE_USE_MANAGED_IDENTITY:-auto}
+          volumes:
+            - ./logs/collector:/app/logs
+          restart: unless-stopped
+          healthcheck:
+            test: ["CMD", "python", "azure_monitor_sender.py", "--health-check"]
+            interval: 60s
+            timeout: 30s
+            retries: 3
+            start_period: 60s
+
+        blog-api:
+          image: ghcr.io/ivanthelad/azmon-nginx-metrics/blog-api:latest
+          container_name: blog-api
+          environment:
+            - PORT=5000
+          volumes:
+            - ./logs/blog-api:/app/logs
+          restart: unless-stopped
+          healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 15s
+
+        # Optional: OpenTelemetry exporter
+        otel-exporter:
+          image: ghcr.io/ivanthelad/azmon-nginx-metrics/otel-exporter:latest
+          container_name: otel-exporter
+          ports:
+            - "8000:8000"
+          environment:
+            - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
+            - AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP}
+            - AZURE_RESOURCE_NAME=${AZURE_RESOURCE_NAME}
+            - AZURE_REGION=${AZURE_REGION:-northeurope}
+            - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+            - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+            - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+            - AZURE_USE_MANAGED_IDENTITY=${AZURE_USE_MANAGED_IDENTITY:-auto}
+          volumes:
+            - ./logs/otel:/app/logs
+          restart: unless-stopped
+          healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+          profiles:
+            - otel
+
+      volumes:
+        logs:
+
+      networks:
+        default:
+          name: nginx-monitoring
+    permissions: '0644'
+
+  - path: /etc/systemd/system/nginx-monitor.service
+    content: |
+      [Unit]
+      Description=NGINX Azure Monitor Stack
+      Requires=docker.service
+      After=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      WorkingDirectory=/opt/nginx-monitor
+      ExecStart=/usr/local/bin/docker-compose up -d --pull always
+      ExecStop=/usr/local/bin/docker-compose down
+      ExecReload=/usr/local/bin/docker-compose up -d --pull always --force-recreate
+      TimeoutStartSec=0
+      User=azureuser
+      Group=docker
+
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+
+  - path: /usr/local/bin/setup-nginx-monitor.sh
+    content: |
+      #!/bin/bash
+      set -e
+
+      echo "Setting up NGINX Monitor stack..."
+
+      # Create directory structure
+      mkdir -p /opt/nginx-monitor/logs/{nginx,nginx-exporter,collector,otel,blog-api}
+
+      # Ensure azureuser owns the directory
+      chown -R azureuser:azureuser /opt/nginx-monitor
+
+      cd /opt/nginx-monitor
+
+      # Start services with automatic image pulling
+      echo "Starting NGINX Monitor services with latest images..."
+      sudo -u azureuser docker-compose up -d --pull always
+
+      echo "NGINX Monitor stack setup complete!"
+    permissions: '0755'
+
+runcmd:
+  # Set timezone and locale
+  - timedatectl set-timezone UTC
+  - locale-gen en_US.UTF-8
+
+  # Install Docker for Ubuntu 24.04 LTS
+
+   
+  # Add Docker's official GPG key:
+  - apt-get update
+  - apt-get install ca-certificates curl
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+
+  # Add the repository to Apt sources:
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - apt-get update
+  ## install the latest version of Docker Engine and containerd
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+
+ 
+  # Install Azure CLI for Ubuntu 24.04
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+  # Configure user permissions
+  - usermod -aG docker azureuser
+  - usermod -aG sudo azureuser
+
+  # Fix file ownership after user creation
+  - mkdir -p /opt/nginx-monitor
+  - chown -R azureuser:azureuser /opt/nginx-monitor
+
+  # Create docker-compose symlink for compatibility
+  - ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+
+  # Enable and start Docker service
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Wait for Docker to be ready
+  - sleep 20
+
+  # Setup NGINX Monitor application
+  - /usr/local/bin/setup-nginx-monitor.sh
+
+  # Enable systemd service for automatic startup
+  - systemctl daemon-reload
+  - systemctl enable nginx-monitor.service
+
+  # Start the service
+  - sleep 20
+  - systemctl start nginx-monitor.service
+
+  # Configure automatic service restart on failure
+  - systemctl enable systemd-resolved
+  - systemctl start systemd-resolved
+
+final_message: "NGINX Azure Monitor VM setup complete! Services will start automatically on boot."

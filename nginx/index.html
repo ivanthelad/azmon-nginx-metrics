@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGINX Monitoring Server</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #009900;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #009900;
+        }
+        .card h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .endpoint {
+            background: #e9ecef;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .endpoint a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .endpoint a:hover {
+            text-decoration: underline;
+        }
+        .status {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .test-buttons {
+            margin-top: 20px;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn.danger {
+            background: #dc3545;
+        }
+        .btn.danger:hover {
+            background: #c82333;
+        }
+        .metrics-live {
+            background: #1e1e1e;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 NGINX Monitoring Server</h1>
+
+        <div class="status">
+            <strong>✅ Status:</strong> NGINX is running with comprehensive metrics enabled!<br>
+            <strong>🕒 Time:</strong> <span id="current-time"></span><br>
+            <strong>📊 Metrics:</strong> Standard NGINX metrics available via stub_status module
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>📈 Metrics Endpoints</h3>
+                <div class="endpoint"><a href="/nginx_status">/nginx_status</a> - Basic NGINX metrics</div>
+                <div class="endpoint"><a href="/status_json">/status_json</a> - Basic status information (JSON)</div>
+                <div class="endpoint"><a href="/health">/health</a> - Health check endpoint</div>
+            </div>
+
+            <div class="card">
+                <h3>🔌 API Test Endpoints</h3>
+                <div class="endpoint"><a href="/api/v1/fast">/api/v1/fast</a> - Fast response (~10ms)</div>
+                <div class="endpoint"><a href="/api/v1/slow">/api/v1/slow</a> - Slow response (~2s)</div>
+                <div class="endpoint"><a href="/api/v1/error">/api/v1/error</a> - 500 error response</div>
+                <div class="endpoint"><a href="/api/v1/not_found">/api/v1/not_found</a> - 404 error</div>
+                <div class="endpoint"><a href="/large">/large</a> - Large response (1MB)</div>
+            </div>
+
+            <div class="card">
+                <h3>📝 Blog API Endpoints</h3>
+                <div class="endpoint"><a href="/blog/posts">/blog/posts</a> - List all blog posts</div>
+                <div class="endpoint"><a href="/blog/posts/1">/blog/posts/1</a> - Get specific post</div>
+                <div class="endpoint"><a href="/blog/search?q=nginx">/blog/search?q=nginx</a> - Search posts</div>
+                <div class="endpoint"><a href="/blog/stats">/blog/stats</a> - Blog statistics</div>
+                <div class="endpoint"><a href="/blog/random">/blog/random</a> - Random post</div>
+            </div>
+
+            <div class="card">
+                <h3>🚦 Rate Limiting Tests</h3>
+                <div class="endpoint"><a href="/login">/login</a> - Rate limited (1 req/sec)</div>
+                <div class="warning">
+                    <strong>Note:</strong> The /login endpoint is rate limited to demonstrate rate limiting metrics.
+                    Excessive requests will return 429 status codes.
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🧪 Load Testing</h3>
+                <div class="test-buttons">
+                    <button class="btn" onclick="generateLoad('fast')">Generate Fast Requests</button>
+                    <button class="btn" onclick="generateLoad('slow')">Generate Slow Requests</button>
+                    <button class="btn danger" onclick="generateLoad('error')">Generate Errors</button>
+                    <button class="btn" onclick="generateBlogLoad()">Generate Blog Activity</button>
+                </div>
+                <div id="load-status"></div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h3>📊 Live Basic Metrics</h3>
+            <button class="btn" onclick="refreshMetrics()">Refresh Metrics</button>
+            <div id="metrics-display" class="metrics-live">Click "Refresh Metrics" to load current statistics...</div>
+        </div>
+    </div>
+
+    <script>
+        // Update current time
+        function updateTime() {
+            document.getElementById('current-time').textContent = new Date().toLocaleString();
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Generate load for testing
+        async function generateLoad(type) {
+            const status = document.getElementById('load-status');
+            status.innerHTML = `<div style="color: #007bff;">Generating ${type} requests...</div>`;
+
+            const endpoints = {
+                fast: '/api/v1/fast',
+                slow: '/api/v1/slow',
+                error: '/api/v1/error'
+            };
+
+            const requests = [];
+            for (let i = 0; i < 10; i++) {
+                requests.push(fetch(endpoints[type]));
+            }
+
+            try {
+                await Promise.all(requests);
+                status.innerHTML = `<div style="color: #28a745;">✅ Generated 10 ${type} requests</div>`;
+            } catch (error) {
+                status.innerHTML = `<div style="color: #dc3545;">❌ Error generating requests: ${error.message}</div>`;
+            }
+        }
+
+        // Generate blog activity for testing
+        async function generateBlogLoad() {
+            const status = document.getElementById('load-status');
+            status.innerHTML = '<div style="color: #007bff;">Generating blog activity...</div>';
+
+            const blogEndpoints = [
+                '/blog/posts',
+                '/blog/posts/1',
+                '/blog/posts/2',
+                '/blog/posts/3',
+                '/blog/random',
+                '/blog/stats',
+                '/blog/search?q=nginx',
+                '/blog/search?q=docker',
+                '/blog/search?q=monitoring'
+            ];
+
+            const requests = [];
+            for (let i = 0; i < 15; i++) {
+                const endpoint = blogEndpoints[Math.floor(Math.random() * blogEndpoints.length)];
+                requests.push(fetch(endpoint));
+            }
+
+            try {
+                await Promise.all(requests);
+                status.innerHTML = '<div style="color: #28a745;">✅ Generated 15 blog API requests</div>';
+            } catch (error) {
+                status.innerHTML = `<div style="color: #dc3545;">❌ Error generating blog requests: ${error.message}</div>`;
+            }
+        }
+
+        // Refresh metrics display
+        async function refreshMetrics() {
+            const display = document.getElementById('metrics-display');
+            display.textContent = 'Loading metrics...';
+
+            try {
+                const response = await fetch('/nginx_status');
+                const text = await response.text();
+                display.textContent = text;
+            } catch (error) {
+                display.textContent = `Error loading metrics: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

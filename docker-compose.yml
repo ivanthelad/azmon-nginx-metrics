@@ -1,0 +1,116 @@
+services:
+  nginx:
+    image: ghcr.io/ivanthelad/azmon-nginx-metrics/nginx:latest
+    pull_policy: always
+    container_name: nginx-server
+    ports:
+      - "80:80"
+    volumes:
+      - ./logs/nginx:/var/log/nginx
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  nginx-exporter:
+    image: ghcr.io/ivanthelad/azmon-nginx-metrics/nginx-exporter:latest
+    pull_policy: always
+    container_name: nginx-prometheus-exporter
+    ports:
+      - "9113:9113"
+    depends_on:
+      - nginx
+    environment:
+      - NGINX_STATUS_URL=http://nginx/nginx_status
+      - NGINX_JSON_URL=http://nginx/status_json
+      - SCRAPE_INTERVAL=15
+      - EXPORTER_PORT=9113
+    volumes:
+      - ./logs/nginx-exporter:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9113/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  metrics-collector:
+    image: ghcr.io/ivanthelad/azmon-nginx-metrics/metrics-collector:latest
+    pull_policy: always
+    container_name: metrics-collector
+    depends_on:
+      - nginx-exporter
+    environment:
+      - PROMETHEUS_URL=http://nginx-exporter:9113/metrics
+      - SCRAPE_INTERVAL=${SCRAPE_INTERVAL:-60}
+      - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
+      - AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP}
+      - AZURE_RESOURCE_NAME=${AZURE_RESOURCE_NAME}
+      - AZURE_REGION=${AZURE_REGION:-northeurope}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_USE_MANAGED_IDENTITY=${AZURE_USE_MANAGED_IDENTITY:-auto}
+    volumes:
+      - ./logs/collector:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "azure_monitor_sender.py", "--health-check"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+  blog-api:
+    build: ./blog-api
+    container_name: blog-api
+    environment:
+      - PORT=5000
+    volumes:
+      - ./logs/blog-api:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # Optional: OpenTelemetry exporter
+  otel-exporter:
+    image: ghcr.io/ivanthelad/azmon-nginx-metrics/otel-exporter:latest
+    pull_policy: always
+    container_name: otel-exporter
+    ports:
+      - "8000:8000"
+    environment:
+      - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
+      - AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP}
+      - AZURE_RESOURCE_NAME=${AZURE_RESOURCE_NAME}
+      - AZURE_REGION=${AZURE_REGION:-northeurope}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_USE_MANAGED_IDENTITY=${AZURE_USE_MANAGED_IDENTITY:-auto}
+    volumes:
+      - ./logs/otel:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles:
+      - otel
+
+volumes:
+  logs:
+
+networks:
+  default:
+    name: nginx-monitoring

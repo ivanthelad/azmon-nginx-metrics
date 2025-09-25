@@ -1,0 +1,103 @@
+# Environment files with secrets
+.env
+.env.local
+.env.production
+.env.staging
+
+# Azure credentials
+*.json
+sp.json
+
+# Logs
+logs/
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker volumes and data
+docker-volumes/
+docker-data/
+volumes/
+
+# Docker build cache
+.docker/
+
+# Kubernetes secrets
+*.yaml.secret
+secrets/
+
+# Monitoring data
+prometheus-data/
+grafana-data/
+alertmanager-data/
+
+# SSL certificates and keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Node.js (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Docker Compose override files
+docker-compose.override.yml
+
+# Terraform state files (if used for Azure infrastructure)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Azure CLI cache
+.azure/
+
+# Test results
+.pytest_cache/
+.tox/
+.nox/
+
+# Container build artifacts
+*.tar
+*.tar.gz

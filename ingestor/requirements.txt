@@ -1,0 +1,5 @@
+requests>=2.31.0
+azure-identity>=1.14.0
+azure-monitor-opentelemetry-exporter>=1.0.0b42
+opentelemetry-sdk>=1.20.0
+opentelemetry-api>=1.20.0
