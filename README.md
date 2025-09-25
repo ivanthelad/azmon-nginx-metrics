@@ -27,7 +27,7 @@ Bridge NGINX metrics to Azure Monitor Custom Metrics to enable intelligent autos
 
 ## Deployment Scripts
 
-Execute in order:
+Execute in order. Each script displays the exact command for the next step at completion - copy and paste to continue:
 
 ### Step 0: Create baseline VM
 ```bash
