@@ -13,12 +13,20 @@ UNIQUE_SUFFIX=$(date +%s | tail -c 8)
 RESOURCE_GROUP=${1:-"nginx-monitor-vmss-rg-${UNIQUE_SUFFIX}"}
 LOCATION=${2:-"northeurope"}
 SSH_KEY_PATH=${3:-"~/.ssh/id_rsa.pub"}
-VMSS_NAME=${4:-"vmss-nginx-monitor"}
+
+# Extract suffix from resource group name for consistency
+if [[ "$RESOURCE_GROUP" =~ -([^-]+)$ ]]; then
+    RG_SUFFIX=${BASH_REMATCH[1]}
+else
+    RG_SUFFIX=${UNIQUE_SUFFIX}
+fi
+
+VMSS_NAME=${4:-"vmss-nginx-monitor-${RG_SUFFIX}"}
 INSTANCE_COUNT=${5:-"2"}
 
-# Custom image configuration
-IMAGE_GALLERY_RG=${6:-"nginx-monitor-rg-8529242"}
-IMAGE_GALLERY_NAME=${7:-"nginx_monitor_gallery"}
+# Custom image configuration - use suffix for defaults
+IMAGE_GALLERY_RG=${6:-"rg-nginx-image-gallery-${RG_SUFFIX}"}
+IMAGE_GALLERY_NAME=${7:-"nginx_monitor_gallery_${RG_SUFFIX}"}
 IMAGE_DEFINITION=${8:-"nginx-monitor-ubuntu-2404"}
 IMAGE_VERSION=${9:-"1.0.0"}
 

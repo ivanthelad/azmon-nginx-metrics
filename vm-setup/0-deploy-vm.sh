@@ -12,7 +12,15 @@ UNIQUE_SUFFIX=$(date +%s | tail -c 8)
 RESOURCE_GROUP=${1:-"nginx-monitor-rg-${UNIQUE_SUFFIX}"}
 LOCATION=${2:-"northeurope"}
 SSH_KEY_PATH=${3:-"~/.ssh/id_rsa.pub"}
-VM_NAME=${4:-"vm-nginx-monitor"}
+
+# Extract suffix from resource group name for consistency
+if [[ "$RESOURCE_GROUP" =~ -([^-]+)$ ]]; then
+    RG_SUFFIX=${BASH_REMATCH[1]}
+else
+    RG_SUFFIX=${UNIQUE_SUFFIX}
+fi
+
+VM_NAME=${4:-"vm-nginx-monitor-${RG_SUFFIX}"}
 
 # Configuration variables
 VM_SIZE="Standard_B2s"
@@ -506,9 +514,9 @@ get_outputs() {
     echo "  Once the VM is configured and working properly, create a custom image:"
     echo ""
     echo "  ./1-create-image-gallery.sh \\"
-    echo "      rg-nginx-images \\"
+    echo "      rg-nginx-images-${RG_SUFFIX} \\"
     echo "      $LOCATION \\"
-    echo "      nginx_monitor_gallery \\"
+    echo "      nginx_monitor_gallery_${RG_SUFFIX} \\"
     echo "      $RESOURCE_GROUP \\"
     echo "      $VM_NAME"
     echo ""

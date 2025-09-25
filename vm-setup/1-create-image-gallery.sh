@@ -11,7 +11,15 @@ UNIQUE_SUFFIX=$(date +%s | tail -c 8)
 # Script parameters
 RESOURCE_GROUP=${1:-"rg-nginx-image-gallery-${UNIQUE_SUFFIX}"}
 LOCATION=${2:-"northeurope"}
-GALLERY_NAME=${3:-"nginx_monitor_gallery"}
+
+# Extract suffix from resource group name for consistency, or use unique suffix
+if [[ "$RESOURCE_GROUP" =~ -([^-]+)$ ]]; then
+    RG_SUFFIX=${BASH_REMATCH[1]}
+else
+    RG_SUFFIX=${UNIQUE_SUFFIX}
+fi
+
+GALLERY_NAME=${3:-"nginx_monitor_gallery_${RG_SUFFIX}"}
 SOURCE_VM_RG=${4:-""}
 SOURCE_VM_NAME=${5:-""}
 
@@ -270,10 +278,10 @@ get_outputs() {
     echo "  Deploy a single VM from this custom image:"
     echo ""
     echo "  ./2.1-deploy-vm-from-image.sh \\"
-    echo "      rg-nginx-prod \\"
+    echo "      rg-nginx-prod-${RG_SUFFIX} \\"
     echo "      $LOCATION \\"
     echo "      ~/.ssh/id_rsa.pub \\"
-    echo "      vm-nginx-prod \\"
+    echo "      vm-nginx-prod-${RG_SUFFIX} \\"
     echo "      $RESOURCE_GROUP \\"
     echo "      $GALLERY_NAME"
     echo ""
@@ -281,10 +289,10 @@ get_outputs() {
     echo "  Deploy a Virtual Machine Scale Set from this custom image:"
     echo ""
     echo "  ./2.2-deploy-vmss-from-image.sh \\"
-    echo "      rg-nginx-vmss \\"
+    echo "      rg-nginx-vmss-${RG_SUFFIX} \\"
     echo "      $LOCATION \\"
     echo "      ~/.ssh/id_rsa.pub \\"
-    echo "      vmss-nginx-prod \\"
+    echo "      vmss-nginx-prod-${RG_SUFFIX} \\"
     echo "      3 \\"
     echo "      $RESOURCE_GROUP \\"
     echo "      $GALLERY_NAME"

@@ -13,11 +13,19 @@ UNIQUE_SUFFIX=$(date +%s | tail -c 8)
 RESOURCE_GROUP=${1:-"nginx-monitor-rg-${UNIQUE_SUFFIX}"}
 LOCATION=${2:-"northeurope"}
 SSH_KEY_PATH=${3:-"~/.ssh/id_rsa.pub"}
-VM_NAME=${4:-"vm-nginx-monitor"}
 
-# Custom image configuration
-IMAGE_GALLERY_RG=${5:-"nginx-monitor-rg-8529242"}
-IMAGE_GALLERY_NAME=${6:-"nginx_monitor_gallery"}
+# Extract suffix from resource group name for consistency
+if [[ "$RESOURCE_GROUP" =~ -([^-]+)$ ]]; then
+    RG_SUFFIX=${BASH_REMATCH[1]}
+else
+    RG_SUFFIX=${UNIQUE_SUFFIX}
+fi
+
+VM_NAME=${4:-"vm-nginx-monitor-${RG_SUFFIX}"}
+
+# Custom image configuration - use suffix for defaults
+IMAGE_GALLERY_RG=${5:-"rg-nginx-image-gallery-${RG_SUFFIX}"}
+IMAGE_GALLERY_NAME=${6:-"nginx_monitor_gallery_${RG_SUFFIX}"}
 IMAGE_DEFINITION=${7:-"nginx-monitor-ubuntu-2404"}
 IMAGE_VERSION=${8:-"1.0.0"}
 
