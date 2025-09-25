@@ -1,5 +1,9 @@
 # NGINX Azure Monitor Stack for Autoscaling
 
+> **⚠️ PROOF OF CONCEPT**
+>
+> This project demonstrates how to bridge NGINX metrics to Azure Monitor Custom Metrics for intelligent VMSS autoscaling. It serves as a reference implementation for scaling Azure infrastructure based on custom application metrics rather than just CPU/memory utilization.
+
 Docker-based monitoring solution that enables Azure VMSS autoscaling based on NGINX application metrics.
 
 ## Architecture
