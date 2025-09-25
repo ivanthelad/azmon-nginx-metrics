@@ -87,3 +87,7 @@ Docker images are automatically built and pushed to GitHub Container Registry vi
 - `ghcr.io/ivanthelad/azmon-nginx-metrics/blog-api` - Sample API service
 
 Images are built on every push to main/develop branches and tagged releases. Multi-architecture support (AMD64/ARM64).
+
+## Troubleshooting
+
+If VM deployment or services aren't working, see [vm-setup/DEBUGVM.md](vm-setup/DEBUGVM.md) for debugging cloud-init and container issues.

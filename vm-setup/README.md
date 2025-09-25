@@ -224,3 +224,7 @@ Each deployment creates these resource types:
 - Custom autoscaling profiles with both CPU and application-aware rules
 
 The result is a production-ready, scalable NGINX monitoring infrastructure that bridges application metrics with Azure's native autoscaling capabilities.
+
+## 🛠️ Troubleshooting
+
+If you encounter issues with VM deployment, cloud-init, or service startup, see [DEBUGVM.md](DEBUGVM.md) for comprehensive debugging steps and common solutions.

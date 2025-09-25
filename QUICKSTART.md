@@ -71,3 +71,7 @@ All images published to GitHub Container Registry:
 - `ghcr.io/ivanthelad/azmon-nginx-metrics/nginx-exporter:latest`
 - `ghcr.io/ivanthelad/azmon-nginx-metrics/metrics-collector:latest`
 - `ghcr.io/ivanthelad/azmon-nginx-metrics/blog-api:latest`
+
+## Troubleshooting
+
+If the VM deployment or services aren't working, see [vm-setup/DEBUGVM.md](vm-setup/DEBUGVM.md) for debugging steps.

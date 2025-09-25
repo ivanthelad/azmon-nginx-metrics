@@ -2,8 +2,8 @@
 # Ubuntu 24.04 LTS VM setup for NGINX Azure Monitor stack
 # Includes Docker, Azure Monitor Agent, and automatic service startup
 
-package_update: true
-package_upgrade: true
+package_update: false
+package_upgrade: false
 
 packages:
   - apt-transport-https
@@ -21,6 +21,12 @@ packages:
   - vim
 
 write_files:
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "0";
+      APT::Periodic::Unattended-Upgrade "0";
+    permissions: '0644'
+
   - path: /opt/nginx-monitor/.env
     content: |
       # Azure Configuration - will be populated by managed identity
@@ -210,9 +216,17 @@ runcmd:
   - timedatectl set-timezone UTC
   - locale-gen en_US.UTF-8
 
+  # Stop and disable unattended-upgrades to prevent package lock conflicts
+  - systemctl stop unattended-upgrades
+  - systemctl disable unattended-upgrades
+
+  # Wait for any existing package operations to complete
+  - while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
+  - while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done
+
   # Install Docker for Ubuntu 24.04 LTS
 
-   
+
   # Add Docker's official GPG key:
   - apt-get update
   - apt-get install ca-certificates curl
